@@ -5,13 +5,20 @@
 #include <optimizer/planner.h>
 #include <optimizer/pathnode.h>
 #include <optimizer/paths.h>
-#include <optimizer/plancat.h>
 #include <catalog/namespace.h>
 #include <utils/guc.h>
 #include <miscadmin.h>
+#include <nodes/makefuncs.h>
+#include <optimizer/var.h>
+#include <optimizer/restrictinfo.h>
+#include <utils/lsyscache.h>
 
 #include "compat-msvc-enter.h"
 #include <optimizer/cost.h>
+#include <tcop/tcopprot.h>
+#include <optimizer/plancat.h>
+#include <catalog/pg_inherits_fn.h>
+#include <nodes/nodeFuncs.h>
 #include "compat-msvc-exit.h"
 
 #include "hypertable_cache.h"
@@ -23,12 +30,17 @@
 #include "planner_utils.h"
 #include "hypertable_insert.h"
 #include "constraint_aware_append.h"
+#include "partitioning.h"
+#include "dimension_slice.h"
+#include "dimension_vector.h"
+#include "chunk.h"
 
 void		_planner_init(void);
 void		_planner_fini(void);
 
 static planner_hook_type prev_planner_hook;
 static set_rel_pathlist_hook_type prev_set_rel_pathlist_hook;
+static get_relation_info_hook_type prev_get_relation_info_hook;
 
 typedef struct ModifyTableWalkerCtx
 {
@@ -143,7 +155,6 @@ modifytable_plan_walker(Plan **planptr, void *pctx)
 	}
 }
 
-
 static PlannedStmt *
 timescaledb_planner(Query *parse, int cursor_opts, ParamListInfo bound_params)
 {
@@ -200,7 +211,7 @@ should_optimize_append(const Path *path)
 
 	/*
 	 * If there are clauses that have mutable functions, this path is ripe for
-	 * execution-time optimization
+	 * execution-time optimization.
 	 */
 	foreach(lc, rel->baserestrictinfo)
 	{
@@ -230,7 +241,6 @@ is_append_parent(RelOptInfo *rel, RangeTblEntry *rte)
 		rel->rtekind == RTE_RELATION &&
 		rte->relkind == RELKIND_RELATION;
 }
-
 
 static void
 timescaledb_set_rel_pathlist(PlannerInfo *root,
@@ -326,8 +336,6 @@ out_release:
 	cache_release(hcache);
 }
 
-static get_relation_info_hook_type prev_get_relation_info_hook= NULL; 
-
 /* This hook is meant to editorialize about the information
  * the planner gets about a relation. We hijack it here
  * to also expand the append relation for hypertables. */
@@ -363,4 +371,5 @@ _planner_fini(void)
 {
 	planner_hook = prev_planner_hook;
 	set_rel_pathlist_hook = prev_set_rel_pathlist_hook;
+	get_relation_info_hook = prev_get_relation_info_hook;
 }
