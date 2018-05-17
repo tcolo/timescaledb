@@ -149,6 +149,8 @@ timescaledb_planner(Query *parse, int cursor_opts, ParamListInfo bound_params)
 {
 	PlannedStmt *plan_stmt = NULL;
 
+	extension_is_loaded();
+
 	if (prev_planner_hook != NULL)
 	{
 		/* Call any earlier hooks */
