@@ -5,6 +5,7 @@
 #include <optimizer/planner.h>
 #include <optimizer/pathnode.h>
 #include <optimizer/paths.h>
+#include <optimizer/plancat.h>
 #include <catalog/namespace.h>
 #include <utils/guc.h>
 #include <miscadmin.h>
@@ -323,6 +324,26 @@ out_release:
 	cache_release(hcache);
 }
 
+static get_relation_info_hook_type prev_get_relation_info_hook= NULL; 
+
+/* This hook is meant to editorialize about the information
+ * the planner gets about a relation. We hijack it here
+ * to also expand the append relation for hypertables. */
+static void
+timescaledb_get_relation_info_hook(PlannerInfo *root,
+								   Oid relation_objectid,
+								   bool inhparent,
+								   RelOptInfo *rel)
+{
+	RangeTblEntry *rte;
+
+	if (prev_get_relation_info_hook != NULL)
+		prev_get_relation_info_hook(root, relation_objectid, inhparent, rel);
+
+	if (!extension_is_loaded())
+		return;
+}
+
 void
 _planner_init(void)
 {
@@ -330,6 +351,9 @@ _planner_init(void)
 	planner_hook = timescaledb_planner;
 	prev_set_rel_pathlist_hook = set_rel_pathlist_hook;
 	set_rel_pathlist_hook = timescaledb_set_rel_pathlist;
+
+	prev_get_relation_info_hook = get_relation_info_hook;
+	get_relation_info_hook = timescaledb_get_relation_info_hook;
 }
 
 void
