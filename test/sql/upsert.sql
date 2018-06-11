@@ -40,6 +40,8 @@ INSERT INTO upsert_test_multi_unique VALUES ('2017-01-20T09:00:01', 25.9, 'purpl
 SELECT * FROM upsert_test_multi_unique ORDER BY time, color DESC;
 INSERT INTO upsert_test_multi_unique VALUES ('2017-01-20T09:00:01', 25.9, 'blue') ON CONFLICT (time, temp)
 DO UPDATE SET color = 'blue';
+INSERT INTO upsert_test_multi_unique VALUES ('2017-01-20T09:00:01', 23.5, 'orange') ON CONFLICT (time, temp)
+DO UPDATE SET color = excluded.color;
 SELECT * FROM upsert_test_multi_unique ORDER BY time, color DESC;
 INSERT INTO upsert_test_multi_unique VALUES ('2017-01-21T09:00:01', 45.7, 'yellow') ON CONFLICT (time, color)
 DO UPDATE SET temp = 45.7;
@@ -48,6 +50,15 @@ SELECT * FROM upsert_test_multi_unique ORDER BY time, color DESC;
 INSERT INTO upsert_test_multi_unique VALUES ('2017-01-20T09:00:01', 23.5, 'purple') ON CONFLICT (time, color)
 DO UPDATE set temp = 23.5;
 \set ON_ERROR_STOP 1
+
+CREATE TABLE upsert_test_space(time timestamp, device_id char(20), temp float, color text);
+CREATE UNIQUE INDEX time_space_idx ON upsert_test_space (time, device_id);
+SELECT create_hypertable('upsert_test_space', 'time', 'device_id', 2, partitioning_func=>'_timescaledb_internal.get_partition_for_key'::regproc);
+INSERT INTO upsert_test_space VALUES ('2017-01-20T09:00:01', 'dev1', 25.9, 'yellow');
+INSERT INTO upsert_test_space VALUES ('2017-01-21T09:00:01', 'dev2', 25.9, 'yellow');
+--this is a case that previously caused a crash
+INSERT INTO upsert_test_space VALUES ('2017-01-20T09:00:01', 'dev1', 23.5, 'orange') ON CONFLICT (time, device_id)
+DO UPDATE SET color = excluded.color;
 
 WITH CTE AS (
     INSERT INTO upsert_test_multi_unique

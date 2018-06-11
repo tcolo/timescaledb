@@ -56,7 +56,7 @@ set(PG_REGRESS_ENV
   TEST_SCHEDULE=${TEST_SCHEDULE}
   PG_REGRESS=${PG_REGRESS})
 
-file(WRITE ${TEST_OUTPUT_DIR}/postgresql.conf "shared_preload_libraries=timescaledb")
+file(WRITE ${TEST_OUTPUT_DIR}/postgresql.conf "shared_preload_libraries=\'pg_stat_statements,timescaledb\'")
 
 # installcheck starts up new temporary instances for testing code
 add_custom_target(installcheck
